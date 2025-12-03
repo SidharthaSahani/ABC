@@ -1,22 +1,89 @@
+    import userModel from "../models/userModel.js";
+    import validator from "validator";
+    import bcrypt from "bcrypt";
+    import jwt from "jsonwebtoken";
 
+    const createToken = (id) => {
+    return jwt.sign({ id }, process.env.JWT_SECRET);
+    };
 
-//Route for user login
-const loginUser = async (req, res) => {
-    
-}
+    //Route for user login
+        const loginUser = async (req, res) => {
+        try {
+            
+            const { email, password } = req.body;
 
+            const user = await userModel.findOne({ email });
 
-//Route user User Registration
+            if (!user) {
+                return res.json({ success: false, message: "User dosen't exists" });
+            }
 
-const registerUser = async (req,res) => {
-   
-}
+            const isMatch = await bcrypt.compare(password, user.password);
 
-// Route for Admin Login
-const adminLogin = async (req, res)=>{
-    
-}
+            if (isMatch) {
+                const token = createToken(user._id);
+                res.json({success: true,token})
+            }
 
-export {loginUser,registerUser,adminLogin }
+            else {
+                res.json({success:false, message:'Invalid Credentials'})
+            }
 
+        } catch (error) {
+            console.log(error);
+            res.json({ success: flase, message: error.message });
+        }
+    };
 
+    //Route user User Registration
+        const registerUser = async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+
+        //cheking user all ready existe
+
+        const exists = await userModel.findOne({ email });
+        if (exists) {
+        return res.json({ success: false, message: "User already exists" });
+        }
+
+        //Valadiating email format and strong password
+
+        if (!validator.isEmail(email)) {
+        return res.json({ success: false, message: "Enter Vlid Email" });
+        }
+
+        if (password.length < 8) {
+        return res.json({
+            success: false,
+            message: "Plese enter a strong password",
+        });
+        }
+
+        //Hasing user Password
+
+        const salt = await bcrypt.genSalt(8);
+        const hasedPassword = await bcrypt.hash(password, salt);
+
+        const newUser = new userModel({
+        name,
+        email,
+        password: hasedPassword,
+        });
+
+        const user = await newUser.save();
+
+        const token = createToken(user._id);
+
+        res.json({ success: true, token });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+    };
+
+    // Route for Admin Login
+    const adminLogin = async (req, res) => {};
+
+    export { loginUser, registerUser, adminLogin };
